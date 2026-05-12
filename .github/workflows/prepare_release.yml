@@ -27,7 +27,7 @@ jobs:
 
       steps:
         - name: Checkout code
-          uses: actions/checkout@v4
+          uses: actions/checkout@v5
           with:
             ref: ${{ github.head_ref }}
 
@@ -79,14 +79,14 @@ jobs:
 
         # Commit all changed files back to the repository
         - name: Commit updated versions
-          uses: stefanzweifel/git-auto-commit-action@v5
+          uses: stefanzweifel/git-auto-commit-action@v7
           with:
             commit_message: Auto increment version to ${{ steps.bump_version.outputs.version }}
 
         # Create draft release
         - name: Create draft release
           id: create-draft-release
-          uses: softprops/action-gh-release@v2
+          uses: softprops/action-gh-release@v3
           with:
             name: v${{ steps.bump_version.outputs.version }}
             draft: true

@@ -16,22 +16,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
-    - name: Configure CMake & Build
+    - name: Configure CMake
       env:
         # Map from C++ compiler to equivalent C compiler
         g++: gcc
         clang++: clang
-      uses: threeal/cmake-action@v2.0.0
-      with:
-        build-dir: ${{ env.output_folder }}
-        c-compiler: ${{ env[env.cpp_compiler] }}
-        cxx-compiler: ${{ env.cpp_compiler }}
-        build-args: -t tester
-        options: |
-          LIBDIVIDE_BUILD_TESTS=ON
-          CMAKE_BUILD_TYPE=${{ env.build_type }}
+      run: >
+        cmake -S . -B "${{ env.output_folder }}"
+        -DCMAKE_C_COMPILER=${{ env[env.cpp_compiler] }}
+        -DCMAKE_CXX_COMPILER=${{ env.cpp_compiler }}
+        -DLIBDIVIDE_BUILD_TESTS=ON
+        -DCMAKE_BUILD_TYPE=${{ env.build_type }}
+
+    - name: Build
+      run: >
+        cmake --build "${{ env.output_folder }}"
+        --target tester
+        --config ${{ env.build_type }}
 
     - name: Test
       working-directory: ${{env.output_folder}}

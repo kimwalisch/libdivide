@@ -32,22 +32,22 @@ jobs:
       output_folder: ${{github.workspace}}/build/
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
-    - name: Configure CMake & Build
+    - name: Configure CMake
       env:
         # Map from C++ compiler to equivalent C compiler
         g++: gcc
         clang++: clang
-      uses: threeal/cmake-action@v2.0.0
-      with:
-        build-dir: ${{ env.output_folder }}
-        c-compiler: ${{ env[matrix.cpp_compiler] }}
-        cxx-compiler: ${{ matrix.cpp_compiler }}
-        options: |
-          LIBDIVIDE_BUILD_TESTS=ON
-          CMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        build-args: --config ${{ matrix.build_type }}
+      run: >
+        cmake -S . -B "${{ env.output_folder }}"
+        -DCMAKE_C_COMPILER=${{ env[matrix.cpp_compiler] }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DLIBDIVIDE_BUILD_TESTS=ON
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+    - name: Build
+      run: cmake --build "${{ env.output_folder }}" --config ${{ matrix.build_type }}
 
     - name: Test
       working-directory: ${{ env.output_folder }}
@@ -93,30 +93,14 @@ jobs:
       output_folder: ${{github.workspace}}/build/
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: ilammy/msvc-dev-cmd@v1
+    - uses: actions/checkout@v5
 
-    - name: Configure CMake & Build
-      env:
-        # Map from C++ compiler to equivalent C compiler
-        cl.exe: cl.exe
-        clang-cl.exe: clang-cl.exe
-        toolset: ${{ matrix.toolset && format('-T {0}', matrix.toolset) || ''}}
-      uses: threeal/cmake-action@v2.0.0
-      with:
-        build-dir: ${{ env.output_folder }}
-        c-compiler: ${{ env[matrix.cpp_compiler] }}
-        cxx-compiler: ${{ matrix.cpp_compiler }}
-        generator: ${{ matrix.generator }}
-        args: ${{ env.toolset }}
-        options: |
-          LIBDIVIDE_BUILD_TESTS=ON
-          CMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          ${{ matrix.build_type == 'Sanitize' && 'LIBDIVIDE_ENABLE_SANITIZERS=ON' || '' }}
-        build-args: --config ${{ matrix.build_type }}
-
-    - name: Test
-      working-directory: ${{ env.output_folder }}
-      # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest --build-config ${{ matrix.build_type }} --verbose
+    - name: Configure CMake, Build & Test
+      shell: cmd
+      run: |
+        for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSINSTALLDIR=%%i"
+        call "%VSINSTALLDIR%\Common7\Tools\VsDevCmd.bat" -arch=x64
+        cmake -S . -B "${{ env.output_folder }}" -G "${{ matrix.generator }}" ${{ matrix.toolset && format('-T {0}', matrix.toolset) || '' }} -DCMAKE_C_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DLIBDIVIDE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ${{ matrix.build_type == 'Sanitize' && '-DLIBDIVIDE_ENABLE_SANITIZERS=ON' || '' }}
+        cmake --build "${{ env.output_folder }}" --config ${{ matrix.build_type }}
+        cd /d "${{ env.output_folder }}"
+        ctest --build-config ${{ matrix.build_type }} --verbose
