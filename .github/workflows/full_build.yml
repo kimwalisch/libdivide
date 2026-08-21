@@ -77,8 +77,10 @@ jobs:
           # See https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
           - os: windows-2022
             generator: Visual Studio 17 2022
+            vs_install_path: C:\Program Files\Microsoft Visual Studio\2022\Enterprise
           - os: windows-2025
             generator: Visual Studio 18 2026
+            vs_install_path: C:\Program Files\Microsoft Visual Studio\18\Enterprise
           # clang-cl requires the toolset flag be set correctly 
           - cpp_compiler: clang-cl.exe
             toolset: ClangCL            
@@ -99,19 +101,14 @@ jobs:
         TOOLSET_ARGS: ${{ matrix.toolset && format('-T {0}', matrix.toolset) || '' }}
       shell: cmd
       run: |
-        for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -products * -latest -prerelease -property installationPath`) do set "VS_INSTALL_PATH=%%i"
-        if not defined VS_INSTALL_PATH exit /b 1
-        call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
-        if errorlevel 1 exit /b 1
+        call "${{ matrix.vs_install_path }}\VC\Auxiliary\Build\vcvarsall.bat" x64 && ^
         cmake -B "%output_folder%" ^
           -G "${{ matrix.generator }}" ^
           -DCMAKE_C_COMPILER=${{ matrix.cpp_compiler }} ^
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} ^
           -DLIBDIVIDE_BUILD_TESTS=ON ^
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ^
-          %SANITIZER_OPTION% %TOOLSET_ARGS%
-        if errorlevel 1 exit /b 1
-        cmake --build "%output_folder%" --config ${{ matrix.build_type }}
-        if errorlevel 1 exit /b 1
-        cd /d "%output_folder%"
+          %SANITIZER_OPTION% %TOOLSET_ARGS% && ^
+        cmake --build "%output_folder%" --config ${{ matrix.build_type }} && ^
+        cd /d "%output_folder%" && ^
         ctest --build-config ${{ matrix.build_type }} --verbose
